@@ -52,52 +52,45 @@ int main(int argc, char **argv) {
     //draw a thread from nail-7 to nail-25.
 
     //nail count and threading points.
-    uint32_t m_a = 7, n = 50;
+    uint32_t m_a = 7, m_b = 25, n = 50;
 
-    //loop over nails after m_a till the last.
-    for(uint32_t m_b = m_a + 1; m_b < n; ++m_b) {
-	//nail pitch circle radius.
-	double r = img_width / 2.0;
+    //nail pitch circle radius.
+    double r = img_width / 2.0;
 
-	//nail center angles subtended.
-	double theta_a = 2.0 * M_PI * m_a / n, theta_b = 2.0 * M_PI * m_b / n;
+    //nail center angles subtended.
+    double theta_a = 2.0 * M_PI * m_a / n, theta_b = 2.0 * M_PI * m_b / n;
 
-	//sines and cosines of angles.
-	double s_a = sin(theta_a), s_b = sin(theta_b), s_ba = sin(theta_b - theta_a);
-	double c_a = cos(theta_a), c_b = cos(theta_b);
+    //sines and cosines of angles.
+    double s_a = sin(theta_a), s_b = sin(theta_b), s_ba = sin(theta_b - theta_a);
+    double c_a = cos(theta_a), c_b = cos(theta_b);
 
-	//slope of the line.
-	double m = (s_b - s_a) / (c_b - c_a);
+    //slope of the line.
+    double m = (s_b - s_a) / (c_b - c_a);
 
-	//y-intercept of the line.
-	double c = r * (1 - m - s_ba / (c_b - c_a));
+    //y-intercept of the line.
+    double c = r * (1 - m - s_ba / (c_b - c_a));
 
-	//sanity check.
-	printf("m is %lf and c is %lf\n", m, c);
+    //sanity check.
+    printf("m is %lf and c is %lf\n", m, c);
 
-	//loop thru x-axis' units of length.
-	for(uint32_t i = 0; i < img_width; ++i) {
+    //loop thru x-axis' units of length.
+    for(uint32_t i = 0; i < img_width; ++i) {		//y-coordinate
+	for(uint32_t j = 0; j < img_width; ++j) {	//x-coordinate
 
-	    //calculate y coordinate bounds.
-	    uint32_t y_lower = floor(m * i + c);
-	    uint32_t y_upper = ceil(m * (i + 1) + c);
+	    //calculate the distance of the pixel from the line.
+	    double d = fabs(m * j + c - i) / sqrt(1 + m * m);
 
-	    //check if y bounds overshoot or undershoot canvas bounds.
-	    if((y_lower < 0 || y_lower >= img_width) 
-		    || (y_upper < 0 || y_upper >= img_width))
-		continue;
+	    //attenuate if necessary.
+	    if(d > 255)
+		d = 255;
 
-	    //loop for vertical pixels.
-	    for(uint32_t k = y_lower; k <= y_upper; ++k) {
+	    //store this value in each pixel.
+	    pixel_array[4 * (i * img_width + j)] = d;
+	    pixel_array[4 * (i * img_width + j) + 1] = d;
+	    pixel_array[4 * (i * img_width + j) + 2] = d;
 
-		//set pixel color black.
-		pixel_array[4 * (k * img_width + i)] = 0;
-		pixel_array[4 * (k * img_width + i) + 1] = 0;
-		pixel_array[4 * (k * img_width + i) + 2] = 0;
-
-		//alpha: opaque.
-		pixel_array[4 * (k * img_width + i) + 3] = 255;
-	    }
+	    //alpha: opaque.
+	    pixel_array[4 * (i * img_width + j) + 3] = 255;
 	}
     }
 
