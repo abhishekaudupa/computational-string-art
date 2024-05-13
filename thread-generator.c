@@ -73,6 +73,15 @@ int main(int argc, char **argv) {
     //sanity check.
     printf("m is %lf and c is %lf\n", m, c);
 
+    //core thickness.
+    double t_c = 0.5;
+
+    //fray thickness.
+    double t_f = 0.25;
+
+    //thread core shade value.
+    double d_p = 240.0;
+
     //loop thru x-axis' units of length.
     for(uint32_t i = 0; i < img_width; ++i) {		//y-coordinate
 	for(uint32_t j = 0; j < img_width; ++j) {	//x-coordinate
@@ -80,9 +89,13 @@ int main(int argc, char **argv) {
 	    //calculate the distance of the pixel from the line.
 	    double d = fabs(m * j + c - i) / sqrt(1 + m * m);
 
-	    //attenuate if necessary.
-	    if(d > 255)
-		d = 255;
+	    //run d through the thread formula.
+	    if(d >= 0 && d < t_c)
+		d = d_p;
+	    else if(d >= t_c && d < t_c + t_f)
+		d = d_p + (d - t_c) * (255.0 - d_p) / t_f;
+	    else
+		d = 255.0;
 
 	    //store this value in each pixel.
 	    pixel_array[4 * (i * img_width + j)] = d;
