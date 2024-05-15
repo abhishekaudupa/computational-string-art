@@ -3,6 +3,17 @@
 #include <stdint.h>
 #include <math.h>
 
+//thread render function prototype.
+void generate_thread(uint32_t nail_from, 
+	uint32_t nail_to, 
+	uint32_t nail_count, 
+	uint8_t *pixel_array, 
+	uint32_t img_width);
+
+//thread accumulation function prototype.
+void copy_thread(uint8_t *destination, uint8_t *source, uint32_t array_size);
+
+//driver function.
 int main(int argc, char **argv) {
 
     //open the source image file.
@@ -28,37 +39,89 @@ int main(int argc, char **argv) {
 
     //get image size.
     uint8_t *pixel_array;
-    uint32_t pixel_array_size = img_width * img_height * sizeof(*pixel_array) * 4; //because 3 colors per pixel + alpha channel.
+    uint32_t pixel_array_size = img_width * img_height * sizeof(*pixel_array); 
 
     //allocate memory for the pixel array.
     pixel_array = malloc(pixel_array_size);
 
-    //read into pixel array.
-    fseek(input_image, pixel_array_offset, SEEK_SET);
-    fread(pixel_array, pixel_array_size, 1, input_image);
+    //allocate memory to save all threads.
+    uint8_t *thread_accumulation_array = malloc(pixel_array_size);
 
-    //convert color pixels to white.
-    for(uint32_t i = 0; i < pixel_array_size; ) {
+    //clear the thread accum. array (aka make it white).
+    for(uint32_t i = 0; i < pixel_array_size; ++i)
+	thread_accumulation_array[i] = 255;
 
-	//writeback just white color.
-	pixel_array[i] = 255;
-	pixel_array[i + 1] = 255;
-	pixel_array[i + 2] = 255;
+    //generate all possible threads on the canvas.
+    uint32_t nail_count = 30;
+    uint32_t thread_count = 1;
+    for(uint32_t nail_from = 0; nail_from <= nail_count - 2; ++nail_from) {
+	for(uint32_t nail_to = nail_from + 1; nail_to <= nail_count - 1; ++nail_to) {
 
-	//increment iterator.
-	i += 4; //account for alpha as well.
+	    //print thread count message.
+	    printf("Rendering thread %u\n", thread_count++);
+
+	    //render a single thread.
+	    generate_thread(nail_from, nail_to, nail_count, pixel_array, img_width);
+
+	    //copy the generated thread to accumulation array.
+	    copy_thread(thread_accumulation_array, pixel_array, pixel_array_size);
+	}
     }
 
-    //draw a thread from nail-7 to nail-25.
+    //open a file to render the line.
+    FILE *copy_image = fopen("line.bmp", "w");
 
-    //nail count and threading points.
-    uint32_t m_a = 7, m_b = 25, n = 50;
+    //write metadata into the new file.
+    fwrite(metadata, pixel_array_offset, 1, copy_image);
+
+    //write pixel data into the new file.
+    for(uint32_t i = 0; i < img_width * img_width; ++i) {
+
+	//write the colors to file, thrice.
+	fwrite(thread_accumulation_array + i, sizeof(*thread_accumulation_array), 1, copy_image);
+	fwrite(thread_accumulation_array + i, sizeof(*thread_accumulation_array), 1, copy_image);
+	fwrite(thread_accumulation_array + i, sizeof(*thread_accumulation_array), 1, copy_image);
+
+	//write alpha.
+	uint8_t alpha = 255;
+	fwrite(&alpha, sizeof(alpha), 1, copy_image);
+    }
+
+    //free resources in the end.
+    fclose(input_image);
+    free(metadata);
+    free(pixel_array);
+    free(thread_accumulation_array);
+    fclose(copy_image);
+}
+
+/*
+ * Function to render a thread in the supplied pixel array.
+ *
+ * Input:
+ * a. The two nail numbers between which threads are to be strung.
+ * b. Total nail count on the canvas.
+ * c. The pixel array into which data is to be written.
+ * d. The image's width in pixels.
+ * 
+ * Output:
+ * Pixel array is filled with data that renders the requested thread.
+ * 
+ * Constraints:
+ * a. 0 <= nail_from < nail_to < nail_count.
+ * b. Pixels array must have (img_width * img_width) number of bytes in it.
+ */
+void generate_thread(uint32_t nail_from, 
+	uint32_t nail_to, 
+	uint32_t nail_count, 
+	uint8_t *pixel_array, 
+	uint32_t img_width) {
 
     //nail pitch circle radius.
     double r = img_width / 2.0;
 
     //nail center angles subtended.
-    double theta_a = 2.0 * M_PI * m_a / n, theta_b = 2.0 * M_PI * m_b / n;
+    double theta_a = 2.0 * M_PI * nail_from / nail_count, theta_b = 2.0 * M_PI * nail_to / nail_count;
 
     //sines and cosines of angles.
     double s_a = sin(theta_a), s_b = sin(theta_b), s_ba = sin(theta_b - theta_a);
@@ -71,16 +134,16 @@ int main(int argc, char **argv) {
     double c = r * (1 - m - s_ba / (c_b - c_a));
 
     //sanity check.
-    printf("m is %lf and c is %lf\n", m, c);
+    //printf("m is %lf and c is %lf\n", m, c);
 
     //core thickness.
-    double t_c = 0.5;
+    double t_c = 1.0;
 
     //fray thickness.
-    double t_f = 0.25;
+    double t_f = 1.0;
 
     //thread core shade value.
-    double d_p = 240.0;
+    double d_p = 150.0;
 
     //loop thru x-axis' units of length.
     for(uint32_t i = 0; i < img_width; ++i) {		//y-coordinate
@@ -98,25 +161,35 @@ int main(int argc, char **argv) {
 		d = 255.0;
 
 	    //store this value in each pixel.
-	    pixel_array[4 * (i * img_width + j)] = d;
-	    pixel_array[4 * (i * img_width + j) + 1] = d;
-	    pixel_array[4 * (i * img_width + j) + 2] = d;
-
-	    //alpha: opaque.
-	    pixel_array[4 * (i * img_width + j) + 3] = 255;
+	    pixel_array[i * img_width + j] = d;
 	}
     }
+}
 
-    //open a file to render the line.
-    FILE *copy_image = fopen("line.bmp", "w");
+/*
+ * Function to copy a thread image from one array
+ * and accumulate it into another one.
+ * 
+ * Input:
+ * a. The source array containing the thread image data.
+ * b. The destination array to save the above thread image data.
+ * c. Array size.
+ *
+ * Output:
+ * Thread image data added to the destination array.
+ */
+void copy_thread(uint8_t *destination, uint8_t *source, uint32_t array_size) {
 
-    //write data into the new file.
-    fwrite(metadata, pixel_array_offset, 1, copy_image);
-    fwrite(pixel_array, pixel_array_size, 1, copy_image);
+    //loop thru all pixels.
+    for(uint32_t i = 0; i < array_size; ++i) {
 
-    //free resources in the end.
-    fclose(input_image);
-    free(metadata);
-    free(pixel_array);
-    fclose(copy_image);
+	//calculate the resulting pixel shade value.
+	uint32_t shade_val = 510 - destination[i] - source[i];
+
+	//write to pixel, inverted.
+	if(shade_val > 255)
+	    destination[i] = 0;
+	else
+	    destination[i] = 255 - shade_val;
+    }
 }
