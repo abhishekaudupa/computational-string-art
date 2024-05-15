@@ -13,6 +13,9 @@ void generate_thread(uint32_t nail_from,
 //thread accumulation function prototype.
 void copy_thread(uint8_t *destination, uint8_t *source, uint32_t array_size);
 
+//circular clipping function prototype.
+void circular_clip_canvas(uint8_t *pixel_array, uint32_t img_width);
+
 //driver function.
 int main(int argc, char **argv) {
 
@@ -67,6 +70,9 @@ int main(int argc, char **argv) {
 	    copy_thread(thread_accumulation_array, pixel_array, pixel_array_size);
 	}
     }
+
+    //clip the canvas.
+    circular_clip_canvas(thread_accumulation_array, img_width);
 
     //open a file to render the line.
     FILE *copy_image = fopen("line.bmp", "w");
@@ -137,13 +143,13 @@ void generate_thread(uint32_t nail_from,
     //printf("m is %lf and c is %lf\n", m, c);
 
     //core thickness.
-    double t_c = 1.0;
+    double t_c = 0.5;
 
     //fray thickness.
-    double t_f = 1.0;
+    double t_f = 0.5 * t_c;
 
     //thread core shade value.
-    double d_p = 150.0;
+    double d_p = 200.0;
 
     //loop thru x-axis' units of length.
     for(uint32_t i = 0; i < img_width; ++i) {		//y-coordinate
@@ -192,4 +198,31 @@ void copy_thread(uint8_t *destination, uint8_t *source, uint32_t array_size) {
 	else
 	    destination[i] = 255 - shade_val;
     }
+}
+
+/*
+ * Function to circular clip an image.
+ * 
+ * Inputs:
+ * a. The pixel array.
+ * b. The image width.
+ * 
+ * Output:
+ * All pixels beyond the radius (= img_width/2) are
+ * shaded white. The center of the circle is at a distance
+ * of (img_width/2) from both x and y axes.
+ */
+void circular_clip_canvas(uint8_t *pixel_array, uint32_t img_width) {
+
+    //radius of the circle.
+    double r = img_width / 2;
+
+    //loop thru pixels.
+    for(uint32_t i = 0; i < img_width; ++i)		//y-coordinate.
+	for(uint32_t j = 0; j < img_width; ++j) {	//x-coordinate.
+
+	    //render pixel white, if beyond radius.
+	    if(((i - r) * (i - r) + (j - r) * (j - r)) > (r * r))
+		pixel_array[i * img_width + j] = 255;
+	}
 }
