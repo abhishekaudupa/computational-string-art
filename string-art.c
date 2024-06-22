@@ -16,6 +16,12 @@ void copy_thread(uint8_t *destination, uint8_t *source, uint32_t array_size);
 //circular clipping function prototype.
 void circular_clip_canvas(uint8_t *pixel_array, uint32_t img_width);
 
+//string art generator function prototype.
+void make_string_art(uint8_t *grayscale_array,
+	uint8_t *working_array,
+	uint8_t *accumulation_array,
+	uint32_t img_width);
+
 //driver function.
 int main(int argc, char **argv) {
 
@@ -41,10 +47,31 @@ int main(int argc, char **argv) {
     printf("Image size is %u x %u\n", img_width, img_height);
 
     //get image size.
-    uint8_t *pixel_array;
+    uint8_t *pixel_array, *input_image_grayscale;
     uint32_t pixel_array_size = img_width * img_height * sizeof(*pixel_array); 
 
-    //allocate memory for the pixel array.
+    //allocate memory for the grayscale image data.
+    input_image_grayscale = malloc(pixel_array_size);
+
+    //read pixels from image file.
+    fseek(input_image, pixel_array_offset, SEEK_SET);
+    for(uint32_t i = 0; i < pixel_array_size; ++i) {
+
+	//read individual channel values (4 bytes).
+	uint8_t blue_ch, green_ch, red_ch, alpha_ch;
+	fread(&blue_ch, 1, 1, input_image);
+	fread(&green_ch, 1, 1, input_image);
+	fread(&red_ch, 1, 1, input_image);
+	fread(&alpha_ch, 1, 1, input_image);
+
+	//weighted average according to the formula, to obtain grayscale pixel.
+	uint8_t avg = round(0.2829 * blue_ch + 0.5870 * green_ch + 0.1140 * red_ch);
+
+	//copy to array.
+	input_image_grayscale[i] = avg;
+    }
+
+    //allocate memory for the pixel array. 
     pixel_array = malloc(pixel_array_size);
 
     //allocate memory to save all threads.
@@ -54,28 +81,31 @@ int main(int argc, char **argv) {
     for(uint32_t i = 0; i < pixel_array_size; ++i)
 	thread_accumulation_array[i] = 255;
 
-    //generate all possible threads on the canvas.
-    uint32_t nail_count = 30;
-    uint32_t thread_count = 1;
-    for(uint32_t nail_from = 0; nail_from <= nail_count - 2; ++nail_from) {
-	for(uint32_t nail_to = nail_from + 1; nail_to <= nail_count - 1; ++nail_to) {
+    /*//generate all possible threads on the canvas.
+      uint32_t nail_count = 30;
+      uint32_t thread_count = 1;
+      for(uint32_t nail_from = 0; nail_from <= nail_count - 2; ++nail_from) {
+      for(uint32_t nail_to = nail_from + 1; nail_to <= nail_count - 1; ++nail_to) {
 
-	    //print thread count message.
-	    printf("Rendering thread %u\n", thread_count++);
+    //print thread count message.
+    printf("Rendering thread %u\n", thread_count++);
 
-	    //render a single thread.
-	    generate_thread(nail_from, nail_to, nail_count, pixel_array, img_width);
+    //render a single thread.
+    generate_thread(nail_from, nail_to, nail_count, pixel_array, img_width);
 
-	    //copy the generated thread to accumulation array.
-	    copy_thread(thread_accumulation_array, pixel_array, pixel_array_size);
-	}
+    //copy the generated thread to accumulation array.
+    copy_thread(thread_accumulation_array, pixel_array, pixel_array_size);
     }
+    }*/
+
+    //generate string art here instead...
+    make_string_art(input_image_grayscale, pixel_array, thread_accumulation_array, img_width);
 
     //clip the canvas.
     circular_clip_canvas(thread_accumulation_array, img_width);
 
     //open a file to render the line.
-    FILE *copy_image = fopen("line.bmp", "w");
+    FILE *copy_image = fopen("string-art.bmp", "w");
 
     //write metadata into the new file.
     fwrite(metadata, pixel_array_offset, 1, copy_image);
@@ -97,6 +127,7 @@ int main(int argc, char **argv) {
     fclose(input_image);
     free(metadata);
     free(pixel_array);
+    free(input_image_grayscale);
     free(thread_accumulation_array);
     fclose(copy_image);
 }
@@ -225,4 +256,11 @@ void circular_clip_canvas(uint8_t *pixel_array, uint32_t img_width) {
 	    if(((i - r) * (i - r) + (j - r) * (j - r)) > (r * r))
 		pixel_array[i * img_width + j] = 255;
 	}
+}
+
+void make_string_art(uint8_t *grayscale_array,
+	uint8_t *working_array,
+	uint8_t *accumulation_array,
+	uint32_t img_width) {
+    //let's go.
 }
