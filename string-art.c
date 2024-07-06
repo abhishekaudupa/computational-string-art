@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <math.h>
 
+#define MAX_NAIL_COUNT 200
+
 //thread render function prototype.
 void generate_thread(uint32_t nail_from, 
 	uint32_t nail_to, 
@@ -258,9 +260,100 @@ void circular_clip_canvas(uint8_t *pixel_array, uint32_t img_width) {
 	}
 }
 
+/*
+ * Function to calculate the error between the generated thread and the
+ * input image (grayscale).
+ *
+ * Inputs:
+ * 1. The grayscale input image.
+ * 2. The thread generated.
+ * 3. The in-progress string portrait (accumulation_array).
+ * 4. Array dimension.
+ *
+ * Output:
+ * The accumulated difference between corresponding pixels of the 
+ * thread + string portrait arrays and the input image.
+ */
+double get_error(uint8_t *grayscale_array,
+	uint8_t *working_array,
+	uint8_t *accumulation_array,
+	uint32_t img_width) {
+
+    double error = 0;
+
+    for(uint32_t i = 0; i < img_width * img_width; ++i) {
+
+	//sum the thread and the in-progress portrait.
+	uint32_t temp_sum = 510 - accumulation_array[i] - working_array[i];
+
+	if(temp_sum > 255)
+	    temp_sum = 0;
+	else
+	    temp_sum = 255 - temp_sum;
+
+	//calculate and accumulate the error.
+	error += fabs(1.0 * grayscale_array[i] - 1.0 * temp_sum);
+    }
+
+    return error;
+}
+
+/*
+ * 'The' algorithm.
+ */
 void make_string_art(uint8_t *grayscale_array,
 	uint8_t *working_array,
 	uint8_t *accumulation_array,
 	uint32_t img_width) {
-    //let's go.
+
+    uint32_t start_nail = 0;
+    uint32_t max_loop_count = 600;
+    uint32_t loop_counter = 0;
+
+    //main loop.
+    while(loop_counter < max_loop_count) {
+
+	uint32_t end_nail = (start_nail + 1) % MAX_NAIL_COUNT;
+	uint32_t nail_ctr = 0;
+
+	//acquire initial error (using first nail offset from start nail).
+	generate_thread(start_nail, end_nail, MAX_NAIL_COUNT, working_array, img_width);
+	double initial_error = get_error(grayscale_array, working_array, accumulation_array, img_width);
+	++nail_ctr;
+
+	uint32_t optimal_end_nail = end_nail;
+
+	//threads try-out loop.
+	while(nail_ctr < MAX_NAIL_COUNT - 1) {
+
+	    end_nail = (end_nail + 1) % MAX_NAIL_COUNT;
+
+	    //get the error from the generated thread.
+	    generate_thread(start_nail, end_nail, MAX_NAIL_COUNT, working_array, img_width);
+	    double error = get_error(grayscale_array, working_array, accumulation_array, img_width);
+
+	    //if current thread offers a better error.
+	    if(error < initial_error) {
+
+		//note down the nail and update the error to the latest benchmark.
+		optimal_end_nail = end_nail;
+		initial_error = error;
+
+	    }
+	    ++nail_ctr;
+	}
+
+	++loop_counter;
+
+	//diagnostic message.
+	printf("%3u: From nail %3u to %3u (error: %lf)\n", loop_counter, start_nail, optimal_end_nail, initial_error);
+
+	//enlist current iteration's optimal thread into the string portrait.
+	generate_thread(start_nail, optimal_end_nail, MAX_NAIL_COUNT, working_array, img_width);
+	copy_thread(accumulation_array, working_array, img_width * img_width);
+
+	//for next iteration.
+	start_nail = optimal_end_nail;
+
+    }
 }
