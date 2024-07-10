@@ -8,7 +8,7 @@ This is a simple string-art generation algorithm I made with basic knowledge of 
 
 ## What's here?
 
-There are a couple of C files in the main directory and the archive correspnding to various YouTube videos in the series.
+There are a couple of C files in the main directory and the archive corresponding to various YouTube videos in the series.
 
 ### 1. Grayscale Converter
 
@@ -25,3 +25,9 @@ The code in [`archive/thread-generator.c`](https://github.com/abhishekaudupa/com
 ### 4. The String Art Generator
 
 The code in [`string-art.c`](https://github.com/abhishekaudupa/computational-string-art/blob/main/string-art.c) is of our primary interest as it contains the algorithm for generating the string art. This takes a BMP input image (of equal width and height) and outputs its string art representation. This file corresponds to this [video](https://www.youtube.com/watch?v=lFmN3hi2ji0&list=PLlJolu6iXPxzqXUK4kP6z5DFTGtxxpbhy&index=6&pp=iAQB), in which I've given a thorough explanation of its working.
+
+This part is still a work in-progress: I'm yet to show how to optimize the program and to make it converge faster and better. I'm planning to do that in part-6.
+
+## More Info
+
+None of the programs in this repo follow safe programming techniques such as bounds checking, null checking etc and *will* crash upon encountering unexpected inputs (if you do not pass the name of the image as an argument, for example). Since I've wrote these programs with the intent to demonstrate the working of the algorithm, I did not bother writing secure code. If you're planning to use this in an unsafe environment, I highly suggest you fortify your programs.
