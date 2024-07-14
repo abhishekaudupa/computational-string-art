@@ -5,6 +5,12 @@
 
 #define MAX_NAIL_COUNT 200
 
+//error calculation function prototype.
+double get_error(uint8_t *grayscale_array,
+	uint8_t *working_array,
+	uint8_t *accumulation_array,
+	uint32_t img_width);
+
 //thread render function prototype.
 void generate_thread(uint32_t nail_from, 
 	uint32_t nail_to, 
